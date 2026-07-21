@@ -20,6 +20,11 @@ import SwiftUI
 /// Provide the glyph (typically an `Image(systemName:)` with a font) via the
 /// trailing closure; the tile applies the finish for you.
 ///
+/// In dark mode, Candy tiles add two depth cues that dark backgrounds would
+/// otherwise swallow: a tint-colored ambient glow (honoring the shared
+/// shadows preference) and a faint top-lit rim along the tile edge, so the
+/// glass keeps its elevation and richness without ambient light to refract.
+///
 /// The tile is decorative: it is hidden from assistive technologies, since it
 /// always sits beside text that carries the meaning (a settings row, a tracker
 /// title). If a tile must be announced on its own, label its container:
@@ -37,9 +42,12 @@ public struct GlassIconTile<Glyph: View>: View {
     private let gradient: Bool
     private let glyph: Glyph
 
+    @Environment(\.colorScheme) private var colorScheme
+
     @AppStorage(IconStyle.candyModeKey) private var candyMode = IconStyle.candyModeDefault
     @AppStorage(IconStyle.roundIconsKey) private var roundIcons = IconStyle.roundIconsDefault
     @AppStorage(VisualEffectStyle.gradientsEnabledKey) private var gradientsEnabled = VisualEffectStyle.gradientsEnabledDefault
+    @AppStorage(VisualEffectStyle.shadowsEnabledKey) private var shadowsEnabled = VisualEffectStyle.shadowsEnabledDefault
 
     /// Creates a tile with a custom glyph view.
     ///
@@ -88,9 +96,54 @@ public struct GlassIconTile<Glyph: View>: View {
         }
     }
 
+    // In dark mode glass has little ambient light to refract, so the tile loses
+    // the elevation and edge definition it gets for free on bright backgrounds.
+    // Restore both with dark-only cues: a tint-colored ambient glow behind the
+    // tile (a black drop shadow would vanish on a dark background) and a faint
+    // top-lit rim along the tile edge. Light mode renders exactly as before.
+    private var isDarkCandy: Bool { candyMode && colorScheme == .dark }
+
+    /// Colored under-glow standing in for the drop shadow dark backgrounds
+    /// swallow. Drawn as a blurred copy of the tile shape (not `.shadow`, whose
+    /// silhouette is unreliable over glass rendering).
+    @ViewBuilder private var darkModeGlow: some View {
+        if isDarkCandy && shadowsEnabled {
+            tileShape
+                .fill(tint)
+                .frame(width: size, height: size)
+                .blur(radius: size * 0.18)
+                .opacity(0.35)
+                .offset(y: size * 0.05)
+        }
+    }
+
+    /// Top-lit edge highlight so the glass rim reads without ambient light.
+    /// Falls back to a uniform hairline when gradients are disabled.
+    @ViewBuilder private var darkModeRim: some View {
+        if isDarkCandy {
+            tileShape
+                .stroke(
+                    gradientsEnabled
+                        ? AnyShapeStyle(
+                            LinearGradient(
+                                colors: [.white.opacity(0.25), .white.opacity(0.04)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        : AnyShapeStyle(Color.white.opacity(0.10)),
+                    lineWidth: 1
+                )
+                .frame(width: size, height: size)
+                .blendMode(.plusLighter)
+        }
+    }
+
     public var body: some View {
         tileBackground
+            .background { darkModeGlow }
             .overlay { glyph.candyGlyph(candyMode, base: glyphBase) }
+            .overlay { darkModeRim }
             .accessibilityHidden(true)   // decorative — see the type docs
     }
 }

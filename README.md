@@ -156,6 +156,11 @@ finish (useful for a "reduce visual effects" setting).
   colors it automatically softens the sheen and highlight (Rec. 601 luma on
   clamped sRGB components) so dark glyphs keep their gloss instead of washing
   out to gray.
+- **Dark mode:** glass has little ambient light to refract on dark backgrounds,
+  so Candy tiles add two dark-only depth cues — a tint-colored ambient glow
+  (honoring the shadows preference) and a faint top-lit rim along the tile
+  edge — keeping their elevation and richness. Light mode renders identically
+  to before.
 - **Previews:** every component ships with `#Preview` galleries — including an
   alignment-grid overlay for judging glyph placement — using in-memory
   `defaultAppStorage` suites so specific Candy/Round combinations render side
